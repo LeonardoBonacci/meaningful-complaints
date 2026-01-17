@@ -15,6 +15,7 @@ import java.time.LocalDateTime;
 public class Complaint {
 
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "complaint_id")
     private Long complaintId;
 

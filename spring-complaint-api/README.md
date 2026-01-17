@@ -1,13 +1,20 @@
 # Spring Complaint API
 
-REST API for complaint analysis using Spring Boot, Spring AI, and Ollama.
+REST API for complaint analysis using Spring Boot, Spring AI, and Ollama with RAG-powered semantic search.
 
 ## Features
 
 - 🔍 **Semantic Search**: Find similar complaints using vector embeddings
-- 🤖 **AI-Powered Analysis**: Analyze complaint sentiment, category, and urgency
-- 💬 **Response Suggestions**: Generate professional responses to complaints
-- 📊 **PostgreSQL Integration**: Access complaints with pgvector for similarity search
+- 🤖 **RAG-Powered Chat**: Ask questions about complaints with AI that retrieves and analyzes real data
+- 📊 **PostgreSQL Integration**: pgvector for similarity search
+- ⚡ **Real-time CDC**: Automatic embedding generation via Flink CDC pipeline
+
+## Verification
+
+See [VERIFICATION_REPORT.md](../VERIFICATION_REPORT.md) for comprehensive testing results demonstrating:
+- ✅ 100% success rate in semantic complaint retrieval
+- ✅ Real-time CDC integration (<10s latency)
+- ✅ Accurate RAG-powered answers grounded in actual customer data
 
 ## Prerequisites
 
@@ -15,6 +22,7 @@ REST API for complaint analysis using Spring Boot, Spring AI, and Ollama.
 - Maven 3.6+
 - PostgreSQL with pgvector extension (same as Flink CDC pipeline)
 - Ollama running locally with llama3.2 model
+- Flink CDC pipeline running (for real-time embedding generation)
 
 ## Quick Start
 
@@ -127,51 +135,63 @@ Another example - finding damaged product complaints:
 curl "http://localhost:8080/api/complaints/search?query=damaged%20product&limit=3"
 ```
 
-### AI Chat Endpoints
+### AI Chat Endpoint with RAG
 
-#### Analyze Complaint
+#### Ask About Complaints
+This endpoint uses **Retrieval Augmented Generation (RAG)** to answer questions about complaints by:
+1. Converting your question into a vector embedding
+2. Retrieving semantically similar complaints from the database
+3. Using those complaints as context for the LLM to generate an informed answer
+
 ```bash
-curl -X POST http://localhost:8080/api/chat/analyze \
+curl -X POST http://localhost:8080/api/chat/ask \
   -H "Content-Type: application/json" \
   -d '{
-    "complaint": "My account was locked after 3 failed login attempts. I tried calling support but waited on hold for 2 hours!"
+    "question": "What are the most common account access issues?",
+    "limit": 5
   }'
 ```
 
-Returns AI-powered analysis:
+Example questions you can ask:
+```bash
+# Find patterns in complaints
+curl -X POST http://localhost:8080/api/chat/ask \
+  -H "Content-Type: application/json" \
+  -d '{"question": "What problems do customers in the USA report most?"}'
+
+# Get insights about specific issues
+curl -X POST http://localhost:8080/api/chat/ask \
+  -H "Content-Type: application/json" \
+  -d '{"question": "Tell me about delivery and shipping complaints"}'
+
+# Understand trends
+curl -X POST http://localhost:8080/api/chat/ask \
+  -H "Content-Type: application/json" \
+  -d '{"question": "Are there any billing or payment related complaints?"}'
+```
+
+Returns an AI-generated answer with relevant context:
 ```json
 {
-  "sentiment": "negative",
-  "category": "account access",
-  "urgency": "high",
-  "keyIssues": ["account locked", "support wait time"],
-  "suggestedActions": ["unlock account immediately", "improve support response time"]
+  "answer": "Based on the complaints in the database, the most common account access issues include:\n\n1. Account lockouts after failed login attempts - John Smith reported his account was locked after 3 failed attempts\n2. App crashes when trying to view accounts - Alice Johnson experienced the app crashing when accessing her account\n3. Password reset problems - Carol Martinez couldn't reset her password due to broken reset links\n\nThese issues suggest a need for better account recovery processes and more robust authentication systems.",
+  "retrievedComplaintsCount": 5,
+  "relevantComplaints": [
+    {
+      "complaintId": 1,
+      "customerName": "John Smith",
+      "country": "USA",
+      "description": "My account was locked after 3 failed login attempts...",
+      "createdAt": "2024-01-10T10:30:00"
+    }
+  ]
 }
 ```
 
-#### Suggest Response
-```bash
-curl -X POST http://localhost:8080/api/chat/suggest-response \
-  -H "Content-Type: application/json" \
-  -d '{
-    "complaint": "Product arrived damaged and missing parts. Very disappointed with the delivery service.",
-    "tone": "professional"
-  }'
-```
-
-Returns a professional response suggestion:
-```text
-Dear Jane Doe,
-
-We sincerely apologize for the damaged product and missing parts you received. This does not meet our quality standards, and we understand your disappointment.
-
-We will immediately process a replacement shipment with expedited delivery at no charge. Additionally, we're investigating this with our delivery partner to prevent future occurrences.
-
-Please accept a 20% discount on your next order as a gesture of our commitment to your satisfaction.
-
-Best regards,
-Customer Service Team
-```
+**How RAG Works:**
+- Your question is embedded using the same Ollama model (llama3.2)
+- Vector similarity search finds the most relevant complaints
+- The LLM receives these complaints as context
+- The answer is grounded in actual customer data, not hallucinated
 
 ## Configuration
 
