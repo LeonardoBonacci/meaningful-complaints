@@ -38,9 +38,17 @@ CREATE EXTENSION IF NOT EXISTS vector;
 
 \dx
 
+CREATE TABLE complaints (
+    complaint_id BIGINT PRIMARY KEY,
+    customer_name TEXT,
+    country TEXT,
+    description TEXT,
+    created_at TIMESTAMP DEFAULT now()
+);
+
 CREATE TABLE complaint_embeddings (
-    complaint_id UUID PRIMARY KEY,
-    embedding VECTOR(3072),  -- match llama3.2 embedding dimension
+    complaint_id BIGINT PRIMARY KEY,
+    embedding VECTOR(3072),  -- llama3.2 embedding dimension
     updated_at TIMESTAMP DEFAULT now()
 );
 
