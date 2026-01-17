@@ -5,6 +5,10 @@
 
 # Maven
 target/
+dependency-reduced-pom.xml
+
+# Flink logs
+flink-output.log
 
 # IntelliJ IDEA
 .idea/

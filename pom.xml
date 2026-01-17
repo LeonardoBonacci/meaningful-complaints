@@ -57,13 +57,37 @@ under the License.
       <groupId>org.apache.flink</groupId>
       <artifactId>flink-streaming-java</artifactId>
       <version>${flink.version}</version>
-      <scope>provided</scope>
+      <scope>compile</scope>
     </dependency>
     <dependency>
       <groupId>org.apache.flink</groupId>
       <artifactId>flink-clients</artifactId>
       <version>${flink.version}</version>
-      <scope>provided</scope>
+      <scope>compile</scope>
+    </dependency>
+
+    <!-- Flink Core API -->
+    <dependency>
+      <groupId>org.apache.flink</groupId>
+      <artifactId>flink-core</artifactId>
+      <version>${flink.version}</version>
+      <scope>compile</scope>
+    </dependency>
+
+    <!-- Flink Runtime -->
+    <dependency>
+      <groupId>org.apache.flink</groupId>
+      <artifactId>flink-runtime</artifactId>
+      <version>${flink.version}</version>
+      <scope>compile</scope>
+    </dependency>
+
+    <!-- Flink Runtime Web for local testing -->
+    <dependency>
+      <groupId>org.apache.flink</groupId>
+      <artifactId>flink-runtime-web</artifactId>
+      <version>${flink.version}</version>
+      <scope>compile</scope>
     </dependency>
 
     <!-- Table API dependencies for CDC connector -->
@@ -71,7 +95,7 @@ under the License.
       <groupId>org.apache.flink</groupId>
       <artifactId>flink-table-api-java-bridge</artifactId>
       <version>${flink.version}</version>
-      <scope>provided</scope>
+      <scope>compile</scope>
     </dependency>
 
     <!-- Add connector dependencies here. They must be in the default scope
@@ -80,7 +104,7 @@ under the License.
       <groupId>org.apache.flink</groupId>
       <artifactId>flink-connector-base</artifactId>
       <version>${flink.version}</version>
-      <scope>provided</scope>
+      <scope>compile</scope>
     </dependency>
 
     <dependency>
@@ -116,6 +140,13 @@ under the License.
       <version>3.1.2-1.18</version>
     </dependency>
 
+    <!-- Apache Commons Lang3 -->
+    <dependency>
+      <groupId>org.apache.commons</groupId>
+      <artifactId>commons-lang3</artifactId>
+      <version>3.12.0</version>
+    </dependency>
+
     <!-- Example:
 
     <dependency>
@@ -129,22 +160,24 @@ under the License.
     IDE. -->
     <!-- These dependencies are excluded from the application JAR by default. -->
     <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+      <version>1.7.36</version>
+    </dependency>
+    <dependency>
       <groupId>org.apache.logging.log4j</groupId>
       <artifactId>log4j-slf4j-impl</artifactId>
       <version>${log4j.version}</version>
-      <scope>runtime</scope>
     </dependency>
     <dependency>
       <groupId>org.apache.logging.log4j</groupId>
       <artifactId>log4j-api</artifactId>
       <version>${log4j.version}</version>
-      <scope>runtime</scope>
     </dependency>
     <dependency>
       <groupId>org.apache.logging.log4j</groupId>
       <artifactId>log4j-core</artifactId>
       <version>${log4j.version}</version>
-      <scope>runtime</scope>
     </dependency>
   </dependencies>
 
@@ -182,8 +215,6 @@ under the License.
                 <excludes>
                   <exclude>org.apache.flink:flink-shaded-force-shading</exclude>
                   <exclude>com.google.code.findbugs:jsr305</exclude>
-                  <exclude>org.slf4j:*</exclude>
-                  <exclude>org.apache.logging.log4j:*</exclude>
                 </excludes>
               </artifactSet>
               <filters>
@@ -201,7 +232,7 @@ under the License.
               <transformers>
                 <transformer
                   implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                  <mainClass>spendreport.FraudDetectionJob</mainClass>
+                  <mainClass>guru.bonacci.semantic.SemanticCDCJob</mainClass>
                 </transformer>
               </transformers>
             </configuration>
