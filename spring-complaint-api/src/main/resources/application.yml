@@ -27,6 +27,15 @@ spring:
       embedding:
         options:
           model: llama3.2
+    
+    vectorstore:
+      pgvector:
+        index-type: HNSW
+        distance-type: COSINE_DISTANCE
+        dimensions: 3072
+        schema-name: public
+        table-name: vector_store
+        initialize-schema: false
 
 server:
   port: 8080

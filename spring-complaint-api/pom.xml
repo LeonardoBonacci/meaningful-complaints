@@ -56,6 +56,12 @@
             <artifactId>spring-ai-ollama-spring-boot-starter</artifactId>
         </dependency>
 
+        <!-- Spring AI PgVector Store -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-pgvector-store-spring-boot-starter</artifactId>
+        </dependency>
+
         <!-- Spring Boot DevTools -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -84,14 +90,32 @@
         </dependencies>
     </dependencyManagement>
 
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-maven-plugin</artifactId>
-            </plugin>
-        </plugins>
-    </build>
+   <build>
+    <plugins>
+        <!-- Spring Boot Maven Plugin -->
+        <plugin>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-maven-plugin</artifactId>
+            <executions>
+                <execution>
+                    <goals>
+                        <goal>repackage</goal> <!-- packages a runnable jar -->
+                    </goals>
+                </execution>
+            </executions>
+        </plugin>
+
+        <!-- Optional: compiler plugin -->
+        <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-compiler-plugin</artifactId>
+            <configuration>
+                <source>17</source>
+                <target>17</target>
+            </configuration>
+        </plugin>
+    </plugins>
+</build>
 
     <repositories>
         <repository>

@@ -5,9 +5,10 @@ REST API for complaint analysis using Spring Boot, Spring AI, and Ollama with RA
 ## Features
 
 - 🔍 **Semantic Search**: Find similar complaints using vector embeddings
-- 🤖 **RAG-Powered Chat**: Ask questions about complaints with AI that retrieves and analyzes real data
-- 📊 **PostgreSQL Integration**: pgvector for similarity search
+- 🤖 **RAG-Powered Chat**: Ask questions about complaints with AI using Spring AI's native QuestionAnswerAdvisor
+- 📊 **Spring AI PgVectorStore**: Auto-configured vector store with PostgreSQL pgvector extension
 - ⚡ **Real-time CDC**: Automatic embedding generation via Flink CDC pipeline
+- 🏗️ **Native Spring AI Architecture**: Uses VectorStore, QuestionAnswerAdvisor, and ChatClient patterns
 
 ## Verification
 
@@ -138,60 +139,55 @@ curl "http://localhost:8080/api/complaints/search?query=damaged%20product&limit=
 ### AI Chat Endpoint with RAG
 
 #### Ask About Complaints
-This endpoint uses **Retrieval Augmented Generation (RAG)** to answer questions about complaints by:
-1. Converting your question into a vector embedding
-2. Retrieving semantically similar complaints from the database
-3. Using those complaints as context for the LLM to generate an informed answer
+This endpoint uses **Spring AI's native Retrieval Augmented Generation (RAG)** with the `QuestionAnswerAdvisor` to answer questions about complaints:
+1. Automatically converts your question into a vector embedding
+2. Uses Spring's `PgVectorStore` to retrieve semantically similar complaints
+3. Passes the retrieved context to Ollama's LLM for a grounded answer
+
+**Architecture:**
+- **VectorStore**: Spring's auto-configured `PgVectorStore` with custom database view
+- **QuestionAnswerAdvisor**: Native Spring AI advisor for RAG workflows
+- **ChatClient**: Fluent API for building prompts with advisors
 
 ```bash
 curl -X POST http://localhost:8080/api/chat/ask \
   -H "Content-Type: application/json" \
   -d '{
-    "question": "What are the most common account access issues?",
-    "limit": 5
+    "question": "What are the most common internet connectivity issues in Mexico?"
   }'
 ```
 
 Example questions you can ask:
 ```bash
-# Find patterns in complaints
+# Find patterns in complaints by country
 curl -X POST http://localhost:8080/api/chat/ask \
   -H "Content-Type: application/json" \
-  -d '{"question": "What problems do customers in the USA report most?"}'
+  -d '{"question": "What problems do customers in Belgium report?"}'
 
 # Get insights about specific issues
 curl -X POST http://localhost:8080/api/chat/ask \
   -H "Content-Type: application/json" \
-  -d '{"question": "Tell me about delivery and shipping complaints"}'
+  -d '{"question": "Tell me about WiFi disconnection and billing complaints"}'
 
-# Understand trends
+# Understand geographic trends
 curl -X POST http://localhost:8080/api/chat/ask \
   -H "Content-Type: application/json" \
-  -d '{"question": "Are there any billing or payment related complaints?"}'
+  -d '{"question": "Are there billing issues in both Mexico and Belgium?"}'
 ```
 
 Returns an AI-generated answer with relevant context:
 ```json
 {
-  "answer": "Based on the complaints in the database, the most common account access issues include:\n\n1. Account lockouts after failed login attempts - John Smith reported his account was locked after 3 failed attempts\n2. App crashes when trying to view accounts - Alice Johnson experienced the app crashing when accessing her account\n3. Password reset problems - Carol Martinez couldn't reset her password due to broken reset links\n\nThese issues suggest a need for better account recovery processes and more robust authentication systems.",
-  "retrievedComplaintsCount": 5,
-  "relevantComplaints": [
-    {
-      "complaintId": 1,
-      "customerName": "John Smith",
-      "country": "USA",
-      "description": "My account was locked after 3 failed login attempts...",
-      "createdAt": "2024-01-10T10:30:00"
-    }
-  ]
+  "answer": "Based on the complaint data from Belgium:\n\n• **WiFi Connectivity Issues** - Pieter Van Den Berg reported WiFi disconnecting every 10 minutes in Brussels office, affecting team productivity\n• **Slow Internet Speeds** - Sophie Dubois in Antwerp is paying for 100Mbps but only getting 15-20Mbps\n• **Billing Errors** - Marc Janssens in Ghent is being charged double (80 euros overcharge) with unresolved customer service issues\n\nThe complaints show a pattern of infrastructure problems and billing accuracy issues across different Belgian cities."
 }
 ```
 
-**How RAG Works:**
-- Your question is embedded using the same Ollama model (llama3.2)
-- Vector similarity search finds the most relevant complaints
-- The LLM receives these complaints as context
-- The answer is grounded in actual customer data, not hallucinated
+**How Spring AI RAG Works:**
+- `QuestionAnswerAdvisor` orchestrates the RAG workflow
+- Embedding model: Ollama llama3.2 (3072 dimensions)
+- Vector search: PgVectorStore queries the `vector_store` view with cosine similarity
+- LLM receives retrieved complaints as grounded context
+- Answer is based on actual customer data from the database
 
 ## Configuration
 
@@ -210,11 +206,48 @@ spring:
       chat:
         options:
           model: llama3.2
+      embedding:
+        options:
+          model: llama3.2
+    
+    vectorstore:
+      pgvector:
+        # Point to custom database view that joins complaints + embeddings
+        table-name: vector_store
+        schema-name: public
+        dimensions: 3072
+        distance-type: COSINE_DISTANCE
+        index-type: HNSW
+        # Don't create schema - we use existing data
+        initialize-schema: false
+        remove-existing-vector-store-table: false
+        schema-validation: false
+```
+
+**Database View Configuration:**
+The application uses a custom `vector_store` view that adapts your existing schema to Spring AI's PgVectorStore:
+
+```sql
+CREATE VIEW vector_store AS
+SELECT 
+    c.complaint_id::text as id,
+    format('Customer: %s | Country: %s | Description: %s | Created: %s',
+           c.customer_name, c.country, c.description, 
+           to_char(c.created_at, 'YYYY-MM-DD HH24:MI:SS')) as content,
+    jsonb_build_object(
+        'complaint_id', c.complaint_id,
+        'customer_name', c.customer_name,
+        'country', c.country,
+        'created_at', c.created_at::text
+    ) as metadata,
+    ce.embedding
+FROM complaints c
+JOIN complaint_embeddings ce ON c.complaint_id = ce.complaint_id;
 ```
 
 ## Architecture & Real-time CDC Integration
 
-This API works seamlessly with the Flink CDC pipeline for real-time synchronization:
+This API uses **Spring AI's native components** and works seamlessly with the Flink CDC pipeline:
 
 ```
 ┌─────────────────────┐
@@ -244,29 +277,44 @@ This API works seamlessly with the Flink CDC pipeline for real-time synchronizat
 ┌─────────────────────┐
 │   PostgreSQL DB     │
 │complaint_embeddings │
+│  + vector_store     │
+│      (view)         │
 └──────────┬──────────┘
-           │ (5) Vector search
+           │ (5) Spring AI RAG
            ▼
 ┌─────────────────────┐
-│  Spring Boot API    │
-│  GET /search        │
+│  Spring AI Stack    │
+│  • PgVectorStore    │
+│  • QuestionAnswer   │
+│    Advisor          │
+│  • ChatClient       │
 └─────────────────────┘
 ```
 
 **Key Components:**
 - **Spring Boot 3.2.1**: REST API with Java 17 support
-- **Spring AI**: Ollama integration for embeddings and chat
-- **Spring Data JPA**: ORM with custom vector queries
+- **Spring AI 1.0.0-M4**: Native RAG support with advisors and vector stores
+  - `PgVectorStore`: Auto-configured PostgreSQL vector store
+  - `QuestionAnswerAdvisor`: Orchestrates RAG workflow
+  - `ChatClient`: Fluent API for LLM interactions
+- **Spring Data JPA**: ORM for complaint entities
 - **pgvector**: PostgreSQL extension for similarity search
 - **Flink CDC**: Real-time change data capture from WAL
-- **Ollama**: llama3.2 model for 3072-dimensional embeddings
+- **Ollama**: llama3.2 model for embeddings (3072-dim) and chat
 
-**Data Flow:**
-1. Create complaint via POST → saved to `complaints` table
-2. Flink CDC detects insert via PostgreSQL WAL (Write-Ahead Log)
-3. Ollama generates 3072-dimensional embedding
-4. JDBC sink writes to `complaint_embeddings` table with UPSERT
-5. Semantic search immediately available via GET /search
+**Spring AI RAG Flow:**
+1. User asks question via POST /api/chat/ask
+2. `ChatClient` with `QuestionAnswerAdvisor` processes request
+3. Question is embedded using Ollama (via Spring AI)
+4. `PgVectorStore` queries `vector_store` view with cosine similarity
+5. Retrieved complaints are injected as context into LLM prompt
+6. Ollama generates grounded answer based on actual data
+7. Response returned to user
+
+**Database Schema Integration:**
+- Custom `vector_store` view adapts existing schema to Spring AI format
+- View joins `complaints` and `complaint_embeddings` tables
+- No schema changes needed - Spring AI works with existing data
 
 ## Development
 
