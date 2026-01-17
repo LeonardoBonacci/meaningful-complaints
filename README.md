@@ -27,7 +27,10 @@ docker run -d \
   -e POSTGRES_PASSWORD=postgres \
   -e POSTGRES_DB=complaints_db \
   -p 5432:5432 \
-  pgvector/pgvector:pg16
+  pgvector/pgvector:pg16 \
+  -c wal_level=logical \
+  -c max_replication_slots=10 \
+  -c max_wal_senders=10
 
 docker run -it --rm \
   --network host \
@@ -49,12 +52,8 @@ CREATE TABLE complaints (
 CREATE TABLE complaint_embeddings (
     complaint_id BIGINT PRIMARY KEY,
     embedding VECTOR(3072),  -- llama3.2 embedding dimension
-    updated_at TIMESTAMP DEFAULT now()
+    updated_at TIMESTAMP DEFAULT now(),
+    CONSTRAINT fk_complaint FOREIGN KEY (complaint_id) REFERENCES complaints(complaint_id) ON DELETE CASCADE
 );
-
-INSERT INTO complaint_embeddings (complaint_id, embedding)
-VALUES
-  ('00000000-0000-0000-0000-000000000001', NULL),
-  ('00000000-0000-0000-0000-000000000002', NULL);
 
 ```
